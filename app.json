@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Gas Cylinder Manager",
+    "slug": "gas-cylinder-manager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#0F62FE"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gascylinder.manager"
+    },
+    "android": {
+      "package": "com.gascylinder.manager"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
