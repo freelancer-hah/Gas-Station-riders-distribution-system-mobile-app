@@ -1,7 +1,10 @@
 import React, { useCallback, useState } from "react";
-import { ScrollView, View, Text, RefreshControl, TouchableOpacity, Alert } from "react-native";
+import { ScrollView, View, Text, RefreshControl, TouchableOpacity, Alert, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import api from "../../api/client";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Sharing from "expo-sharing";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api, { BASE_URL } from "../../api/client";
 import { 
   Screen, Card, SectionTitle, StatBox, 
   ErrorText, COLORS, Badge, Button 
@@ -12,7 +15,7 @@ export default function RidersSummaryScreen({ navigation }) {
   const [data, setData] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [exporting, setExporting] = useState(false);
+  const [exportingId, setExportingId] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -37,27 +40,58 @@ export default function RidersSummaryScreen({ navigation }) {
   };
 
   const exportLedger = async (riderId, riderName) => {
-    setExporting(true);
+    setExportingId(riderId);
     try {
-      const response = await api.get(`/admin/export-rider-ledger/${riderId}`, {
-        responseType: 'blob',
-      });
-      
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `Rider_Ledger_${riderName.replace(/\s/g, '_')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      Alert.alert("Success", "Ledger PDF downloaded successfully!");
+      const safeName = `Rider_Ledger_${riderName.replace(/\s/g, '_')}.pdf`;
+
+      if (Platform.OS === "web") {
+        const response = await api.get(`/admin/export-rider-ledger/${riderId}`, {
+          responseType: 'blob',
+        });
+
+        const blob = new Blob([response.data], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = safeName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        Alert.alert("Success", "Ledger PDF downloaded successfully!");
+      } else {
+        // Native (Android/iOS): the backend streams raw PDF bytes, so
+        // download it straight to a file (with the auth header) instead
+        // of going through blob/window APIs, which don't exist here.
+        const token = await AsyncStorage.getItem("token");
+        const fileUri = FileSystem.documentDirectory + safeName;
+
+        const downloadResult = await FileSystem.downloadAsync(
+          `${BASE_URL}/admin/export-rider-ledger/${riderId}`,
+          fileUri,
+          { headers: token ? { Authorization: `Bearer ${token}` } : {} }
+        );
+
+        if (downloadResult.status !== 200) {
+          throw new Error(`Server returned status ${downloadResult.status}`);
+        }
+
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: "application/pdf",
+            dialogTitle: "Rider Ledger",
+          });
+        } else {
+          Alert.alert("Saved", `PDF saved to ${downloadResult.uri}`);
+        }
+      }
     } catch (err) {
+      console.error("Rider ledger export error:", err?.message);
       Alert.alert("Error", "Failed to download ledger");
     } finally {
-      setExporting(false);
+      setExportingId(null);
     }
   };
 
@@ -156,7 +190,7 @@ export default function RidersSummaryScreen({ navigation }) {
                   title="Export PDF" 
                   variant="primary" 
                   onPress={() => exportLedger(item.rider.id, item.rider.name)}
-                  loading={exporting}
+                  loading={exportingId === item.rider.id}
                   size="small"
                   icon="download"
                   style={{ flex: 1 }}
