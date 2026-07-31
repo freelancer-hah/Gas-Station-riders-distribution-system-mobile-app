@@ -1,18 +1,12 @@
 import axios from "axios";
-import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// IMPORTANT: For Expo Go on a PHYSICAL DEVICE, use your computer's LAN IP for ALL platforms.
-// - localhost only works on web (expo start --web) or an iOS simulator
-// - Physical device (Expo Go on iPhone/Android): use LAN IP like http://192.168.2.50:5000/api
-const BASE_URL =
-  Platform.OS === "web"
-    ? "http://localhost:5000/api"
-    : "http://192.168.2.113:5000/api"; // ← user's LAN IP
+//const BASE_URL = "http://192.168.18.15:5000/api";
+const BASE_URL = "https://gas-station-riders-distribution-system.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 30000,
 });
 
 api.interceptors.request.use(async (config) => {
@@ -23,15 +17,11 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-// Add response interceptor to handle 401 errors
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response && error.response.status === 401) {
-      // Clear token and redirect to login
+    if (error.response?.status === 401) {
       await AsyncStorage.removeItem("token");
-      // You can emit an event or use a global state to handle this
-      console.log("Session expired - please login again");
     }
     return Promise.reject(error);
   }

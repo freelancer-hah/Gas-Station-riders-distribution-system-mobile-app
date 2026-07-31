@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { ScrollView, View, Text, RefreshControl, Alert, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import api from "../../api/client";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import api, { BASE_URL } from "../../api/client";
 import { 
   Screen, Card, SectionTitle, ErrorText, 
   COLORS, Button, Badge 
@@ -58,61 +59,59 @@ export default function AdminSaleInvoiceScreen({ route, navigation }) {
   const formatDate = (date) => new Date(date).toLocaleString();
 
   const downloadPdf = async () => {
-    const id = invoice?._id || invoice?.id;
-    if (!id) {
-      Alert.alert("Error", "This invoice hasn't been saved yet, so a PDF isn't available.");
-      return;
-    }
+  const id = invoice?._id || invoice?.id;
 
-    setDownloading(true);
-    try {
-      // Backend returns base64 (not a raw binary stream) since the RN/Hermes
-      // axios client here can't reliably consume blob/arraybuffer responses.
-      const res = await api.get(`/admin/invoice/${id}/pdf`);
-      const { base64, filename } = res.data;
-      const finalName = filename || `Invoice_${id}.pdf`;
+  if (!id) {
+    Alert.alert("Error", "Invoice not found.");
+    return;
+  }
 
-      if (Platform.OS === "web") {
-        // expo-file-system's document-directory APIs aren't available on
-        // web — fall back to a normal browser Blob download instead.
-        const byteChars = atob(base64);
-        const byteNumbers = new Array(byteChars.length);
-        for (let i = 0; i < byteChars.length; i++) {
-          byteNumbers[i] = byteChars.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: "application/pdf" });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = finalName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      } else {
-        const fileUri = FileSystem.documentDirectory + finalName;
-        await FileSystem.writeAsStringAsync(fileUri, base64, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+  setDownloading(true);
 
-        const canShare = await Sharing.isAvailableAsync();
-        if (canShare) {
-          await Sharing.shareAsync(fileUri, {
-            mimeType: "application/pdf",
-            dialogTitle: "Sale Invoice",
-          });
-        } else {
-          Alert.alert("Saved", `Invoice saved to ${fileUri}`);
-        }
+  try {
+    const token = await AsyncStorage.getItem("token");
+
+    const fileUri =
+      FileSystem.documentDirectory +
+      `Invoice_${invoice.invoiceNumber}.pdf`;
+
+    const downloadResult = await FileSystem.downloadAsync(
+      `${BASE_URL}/admin/invoice/${id}/pdf`,
+      fileUri,
+      {
+        headers: token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {},
       }
-    } catch (err) {
-      console.error("Invoice PDF download error:", err);
-      Alert.alert("Error", err?.response?.data?.message || "Failed to download invoice PDF");
-    } finally {
-      setDownloading(false);
+    );
+
+    if (downloadResult.status !== 200) {
+      throw new Error(`Server returned ${downloadResult.status}`);
     }
-  };
+
+    const canShare = await Sharing.isAvailableAsync();
+
+    if (canShare) {
+      await Sharing.shareAsync(downloadResult.uri, {
+        mimeType: "application/pdf",
+        dialogTitle: "Sale Invoice",
+      });
+    } else {
+      Alert.alert("Saved", `Invoice saved to:\n${downloadResult.uri}`);
+    }
+  } catch (err) {
+    console.error("Invoice download error:", err);
+
+    Alert.alert(
+      "Error",
+      err?.message || "Failed to download invoice."
+    );
+  } finally {
+    setDownloading(false);
+  }
+};
 
   if (loading) {
     return (
