@@ -196,6 +196,13 @@ export default function AdminDashboardScreen({ navigation }) {
           style={{ marginTop: 8 }}
           icon="cash"
         />
+        {/* NEW: Show All Sale Invoices button */}
+        <Button 
+          title="Show All Sale Invoices (Admin → Riders)" 
+          onPress={() => navigation.navigate("AdminSaleInvoices")} 
+          style={{ marginTop: 8 }}
+          icon="document-text"
+        />
 
         {/* ===== REPORTS & LEDGERS ===== */}
         <SectionTitle>Reports & Ledgers</SectionTitle>

@@ -1,8 +1,8 @@
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-//const BASE_URL = "http://192.168.18.15:5000/api";
-const BASE_URL = "https://gas-station-riders-distribution-system.onrender.com/api";
+const BASE_URL = "http://192.168.100.207:5000/api";
+//const BASE_URL = "https://gas-station-riders-distribution-system.onrender.com/api";
 
 const api = axios.create({
   baseURL: BASE_URL,

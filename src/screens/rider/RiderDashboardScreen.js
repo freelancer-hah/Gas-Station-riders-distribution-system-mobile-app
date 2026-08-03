@@ -167,6 +167,13 @@ export default function RiderDashboardScreen({ navigation }) {
           style={{ marginTop: 8 }}
           icon="people"
         />
+        {/* NEW: Show All Invoices button */}
+        <Button 
+          title="My Invoices (→ Customers)" 
+          onPress={() => navigation.navigate("RiderInvoices")} 
+          style={{ marginTop: 8 }}
+          icon="document-text"
+        />
         <Button 
           title="Log Out" 
           variant="secondary" 

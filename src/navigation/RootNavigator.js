@@ -25,6 +25,8 @@ import AdminSaleInvoiceScreen from "../screens/admin/AdminSaleInvoiceScreen";
 import AdminSalesReportScreen from "../screens/admin/AdminSalesReportScreen";
 import AdminPaymentCollectionScreen from "../screens/admin/AdminPaymentCollectionScreen";
 import AdminRecordPaymentScreen from "../screens/admin/AdminRecordPaymentScreen";
+// NEW: Admin Sale Invoices List
+import AdminSaleInvoicesScreen from "../screens/admin/AdminSaleInvoicesScreen";
 
 // ==================== RIDER SCREENS ====================
 import RiderDashboardScreen from "../screens/rider/RiderDashboardScreen";
@@ -36,6 +38,8 @@ import RiderInventoryScreen from "../screens/rider/RiderInventoryScreen";
 import PayAdminScreen from "../screens/rider/PayAdminScreen";
 import ReturnEmptyScreen from "../screens/rider/ReturnEmptyScreen";
 import InvoiceDetailScreen from "../screens/rider/InvoiceDetailScreen";
+// NEW: Rider Invoices List
+import RiderInvoicesScreen from "../screens/rider/RiderInvoicesScreen";
 
 // ==================== SHARED SCREENS ====================
 import CustomerLedgerScreen from "../screens/shared/CustomerLedgerScreen";
@@ -108,6 +112,9 @@ function AdminStack() {
       <Stack.Screen name="AdminSalesReport" component={AdminSalesReportScreen} options={{ title: "Sales Report" }} />
       <Stack.Screen name="AdminPaymentCollection" component={AdminPaymentCollectionScreen} options={{ title: "Payment Collection" }} />
       
+      {/* NEW: Admin Sale Invoices List */}
+      <Stack.Screen name="AdminSaleInvoices" component={AdminSaleInvoicesScreen} options={{ title: "All Sale Invoices" }} />
+      
       {/* Shared */}
       <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} options={{ title: "Customer Ledger" }} />
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: "Reports" }} />
@@ -130,6 +137,9 @@ function RiderMainStack() {
       <Stack.Screen name="PayAdmin" component={PayAdminScreen} options={{ title: "Pay Admin" }} />
       <Stack.Screen name="ReturnEmpty" component={ReturnEmptyScreen} options={{ title: "Return Empty Cylinders" }} />
       <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} options={{ title: "Invoice Details" }} />
+      
+      {/* NEW: Rider Invoices List */}
+      <Stack.Screen name="RiderInvoices" component={RiderInvoicesScreen} options={{ title: "My Invoices" }} />
     </Stack.Navigator>
   );
 }
@@ -235,6 +245,17 @@ function SalesMainScreen({ navigation }) {
           <View>
             <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.dark }}>Return Empty</Text>
             <Text style={{ color: COLORS.gray }}>Return empty cylinders to admin</Text>
+          </View>
+          <Icon name="chevron-forward" size={20} color={COLORS.gray} style={{ marginLeft: "auto" }} />
+        </View>
+      </Card>
+      {/* NEW: Show All Invoices button in Sales tab */}
+      <Card onPress={() => navigation.navigate("RiderInvoices")}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Icon name="document-text" size={32} color={COLORS.primary} />
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.dark }}>My Invoices</Text>
+            <Text style={{ color: COLORS.gray }}>View all your invoices</Text>
           </View>
           <Icon name="chevron-forward" size={20} color={COLORS.gray} style={{ marginLeft: "auto" }} />
         </View>
