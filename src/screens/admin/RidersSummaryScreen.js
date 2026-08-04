@@ -1,3 +1,4 @@
+// screens/admin/RidersSummaryScreen.js
 import React, { useCallback, useState } from "react";
 import { ScrollView, View, Text, RefreshControl, TouchableOpacity, Alert, Platform } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -6,7 +7,7 @@ import * as Sharing from "expo-sharing";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api, { BASE_URL } from "../../api/client";
 import { 
-  Screen, Card, SectionTitle, StatBox, 
+  Screen, Card, SectionTitle, 
   ErrorText, COLORS, Badge, Button 
 } from "../../components/UI";
 import Icon from "react-native-vector-icons/Ionicons";
@@ -61,9 +62,6 @@ export default function RidersSummaryScreen({ navigation }) {
 
         Alert.alert("Success", "Ledger PDF downloaded successfully!");
       } else {
-        // Native (Android/iOS): the backend streams raw PDF bytes, so
-        // download it straight to a file (with the auth header) instead
-        // of going through blob/window APIs, which don't exist here.
         const token = await AsyncStorage.getItem("token");
         const fileUri = FileSystem.documentDirectory + safeName;
 
@@ -134,7 +132,15 @@ export default function RidersSummaryScreen({ navigation }) {
         ) : (
           data.riders.map((item) => (
             <Card key={item.rider.id}>
-              <TouchableOpacity onPress={() => navigation.navigate("RiderDetail", { riderId: item.rider.id })}>
+              {/* The whole card body is now tappable to navigate to SellToRider */}
+              <TouchableOpacity
+                onPress={() =>
+                  navigation.navigate("SellToRider", {
+                    rider: item.rider, // pass the rider object
+                  })
+                }
+                activeOpacity={0.7}
+              >
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <View>
                     <Text style={{ fontWeight: "800", fontSize: 16, color: COLORS.dark }}>

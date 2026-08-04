@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// screens/rider/RiderInvoicesScreen.js
+import React, { useState, useLayoutEffect } from "react";
 import { ScrollView, View, Text, RefreshControl, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../api/client";
@@ -9,6 +10,21 @@ export default function RiderInvoicesScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+
+  // Add header right button
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Button
+          title="💰 Payments"
+          variant="secondary"
+          size="small"
+          onPress={() => navigation.navigate("RiderPayments")}
+          style={{ marginRight: 10 }}
+        />
+      ),
+    });
+  }, [navigation]);
 
   const loadInvoices = async () => {
     setLoading(true);

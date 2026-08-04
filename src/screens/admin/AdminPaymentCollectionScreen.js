@@ -1,3 +1,4 @@
+// screens/admin/AdminPaymentCollectionScreen.js
 import React, { useState, useCallback } from "react";
 import { ScrollView, View, Text, RefreshControl, Modal, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
@@ -35,6 +36,7 @@ export default function AdminPaymentCollectionScreen() {
       setSummary(res.data.summary);
       setError("");
     } catch (err) {
+      console.error("Payment collection error:", err);
       setError("Failed to load payment collection");
     } finally {
       setLoading(false);
@@ -135,36 +137,40 @@ export default function AdminPaymentCollectionScreen() {
             </View>
           </Card>
         ) : (
-          payments.map((item, index) => (
-            <Card key={item._id || index}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <Icon name={getMethodIcon(item.method)} size={24} color={COLORS.primary} />
-                  <View>
-                    <Text style={{ fontWeight: "700", color: COLORS.dark }}>
-                      {item.rider?.name || "Rider"}
+          payments.map((item, index) => {
+            // ✅ Fix: Use totalAmount (backend field) or fallback to amount
+            const amount = item.totalAmount || item.amount || 0;
+            return (
+              <Card key={item._id || index}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <Icon name={getMethodIcon(item.method)} size={24} color={COLORS.primary} />
+                    <View>
+                      <Text style={{ fontWeight: "700", color: COLORS.dark }}>
+                        {item.rider?.name || "Rider"}
+                      </Text>
+                      <Text style={{ color: COLORS.gray, fontSize: 12 }}>
+                        {item.method?.replace('_', ' ') || 'cash'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={{ fontWeight: "700", color: COLORS.success, fontSize: 16 }}>
+                      {formatMoney(amount)}
                     </Text>
-                    <Text style={{ color: COLORS.gray, fontSize: 12 }}>
-                      {item.method?.replace('_', ' ') || 'cash'}
+                    <Text style={{ color: COLORS.gray, fontSize: 11 }}>
+                      {formatDate(item.createdAt || item.paymentDate || item.transactionDate)}
                     </Text>
                   </View>
                 </View>
-                <View style={{ alignItems: "flex-end" }}>
-                  <Text style={{ fontWeight: "700", color: COLORS.success, fontSize: 16 }}>
-                    {formatMoney(item.amount || 0)}
+                {item.notes && (
+                  <Text style={{ color: COLORS.gray, fontSize: 11, marginTop: 4 }}>
+                    📝 {item.notes}
                   </Text>
-                  <Text style={{ color: COLORS.gray, fontSize: 11 }}>
-                    {formatDate(item.createdAt || item.paymentDate)}
-                  </Text>
-                </View>
-              </View>
-              {item.notes && (
-                <Text style={{ color: COLORS.gray, fontSize: 11, marginTop: 4 }}>
-                  📝 {item.notes}
-                </Text>
-              )}
-            </Card>
-          ))
+                )}
+              </Card>
+            );
+          })
         )}
       </ScrollView>
 

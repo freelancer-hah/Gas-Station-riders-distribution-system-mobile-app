@@ -1,3 +1,4 @@
+// AppNavigator.js
 import React from "react";
 import { ActivityIndicator, View, Text, StyleSheet } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
@@ -25,7 +26,6 @@ import AdminSaleInvoiceScreen from "../screens/admin/AdminSaleInvoiceScreen";
 import AdminSalesReportScreen from "../screens/admin/AdminSalesReportScreen";
 import AdminPaymentCollectionScreen from "../screens/admin/AdminPaymentCollectionScreen";
 import AdminRecordPaymentScreen from "../screens/admin/AdminRecordPaymentScreen";
-// NEW: Admin Sale Invoices List
 import AdminSaleInvoicesScreen from "../screens/admin/AdminSaleInvoicesScreen";
 
 // ==================== RIDER SCREENS ====================
@@ -38,8 +38,9 @@ import RiderInventoryScreen from "../screens/rider/RiderInventoryScreen";
 import PayAdminScreen from "../screens/rider/PayAdminScreen";
 import ReturnEmptyScreen from "../screens/rider/ReturnEmptyScreen";
 import InvoiceDetailScreen from "../screens/rider/InvoiceDetailScreen";
-// NEW: Rider Invoices List
 import RiderInvoicesScreen from "../screens/rider/RiderInvoicesScreen";
+// NEW: Rider Payments Screen
+import RiderPaymentsScreen from "../screens/rider/RiderPaymentsScreen";
 
 // ==================== SHARED SCREENS ====================
 import CustomerLedgerScreen from "../screens/shared/CustomerLedgerScreen";
@@ -92,30 +93,19 @@ function PendingVerificationScreen({ logout }) {
 function AdminStack() {
   return (
     <Stack.Navigator screenOptions={headerOptions}>
-      {/* Dashboard */}
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} options={{ title: "Dashboard" }} />
-      
-      {/* Management */}
       <Stack.Screen name="Verify" component={VerifyRidersScreen} options={{ title: "Verify Riders" }} />
       <Stack.Screen name="AdminInventory" component={AdminInventoryScreen} options={{ title: "My Inventory" }} />
-      
-      {/* Rider Management */}
       <Stack.Screen name="RidersSummary" component={RidersSummaryScreen} options={{ title: "Riders Summary" }} />
       <Stack.Screen name="RiderDetail" component={RiderDetailScreen} options={{ title: "Rider Detail" }} />
       <Stack.Screen name="RiderLedger" component={RiderLedgerScreen} options={{ title: "Rider Ledger" }} />
       <Stack.Screen name="SellToRider" component={SellToRiderScreen} options={{ title: "Sell to Rider" }} />
       <Stack.Screen name="ReceiveEmpty" component={ReceiveEmptyScreen} options={{ title: "Receive Empty Cylinders" }} />
       <Stack.Screen name="AdminRecordPayment" component={AdminRecordPaymentScreen} options={{ title: "Record Payment" }} />
-      
-      {/* Invoices & Reports */}
       <Stack.Screen name="AdminSaleInvoice" component={AdminSaleInvoiceScreen} options={{ title: "Sale Invoice" }} />
       <Stack.Screen name="AdminSalesReport" component={AdminSalesReportScreen} options={{ title: "Sales Report" }} />
       <Stack.Screen name="AdminPaymentCollection" component={AdminPaymentCollectionScreen} options={{ title: "Payment Collection" }} />
-      
-      {/* NEW: Admin Sale Invoices List */}
       <Stack.Screen name="AdminSaleInvoices" component={AdminSaleInvoicesScreen} options={{ title: "All Sale Invoices" }} />
-      
-      {/* Shared */}
       <Stack.Screen name="CustomerLedger" component={CustomerLedgerScreen} options={{ title: "Customer Ledger" }} />
       <Stack.Screen name="Reports" component={ReportsScreen} options={{ title: "Reports" }} />
     </Stack.Navigator>
@@ -137,9 +127,10 @@ function RiderMainStack() {
       <Stack.Screen name="PayAdmin" component={PayAdminScreen} options={{ title: "Pay Admin" }} />
       <Stack.Screen name="ReturnEmpty" component={ReturnEmptyScreen} options={{ title: "Return Empty Cylinders" }} />
       <Stack.Screen name="InvoiceDetail" component={InvoiceDetailScreen} options={{ title: "Invoice Details" }} />
-      
-      {/* NEW: Rider Invoices List */}
       <Stack.Screen name="RiderInvoices" component={RiderInvoicesScreen} options={{ title: "My Invoices" }} />
+      
+      {/* NEW: Rider Payments Screen */}
+      <Stack.Screen name="RiderPayments" component={RiderPaymentsScreen} options={{ title: "My Collections" }} />
     </Stack.Navigator>
   );
 }
@@ -249,13 +240,23 @@ function SalesMainScreen({ navigation }) {
           <Icon name="chevron-forward" size={20} color={COLORS.gray} style={{ marginLeft: "auto" }} />
         </View>
       </Card>
-      {/* NEW: Show All Invoices button in Sales tab */}
       <Card onPress={() => navigation.navigate("RiderInvoices")}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <Icon name="document-text" size={32} color={COLORS.primary} />
           <View>
             <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.dark }}>My Invoices</Text>
             <Text style={{ color: COLORS.gray }}>View all your invoices</Text>
+          </View>
+          <Icon name="chevron-forward" size={20} color={COLORS.gray} style={{ marginLeft: "auto" }} />
+        </View>
+      </Card>
+      {/* NEW: My Collections */}
+      <Card onPress={() => navigation.navigate("RiderPayments")}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <Icon name="cash" size={32} color={COLORS.success} />
+          <View>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: COLORS.dark }}>My Collections</Text>
+            <Text style={{ color: COLORS.gray }}>View all payments received</Text>
           </View>
           <Icon name="chevron-forward" size={20} color={COLORS.gray} style={{ marginLeft: "auto" }} />
         </View>
