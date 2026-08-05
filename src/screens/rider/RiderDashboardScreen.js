@@ -104,7 +104,6 @@ export default function RiderDashboardScreen({ navigation }) {
 
   // ========== QUICK SALE FUNCTIONS ==========
   const openQuickSale = (cylinder) => {
-    // Use the full inventory list from data
     const inventoryList = data?.assignedInventory || [];
     setQuickSaleInventory(inventoryList);
     setSelectedCylinder(cylinder);
@@ -152,10 +151,7 @@ export default function RiderDashboardScreen({ navigation }) {
       setQuickSaleError("Please select a cylinder first.");
       return;
     }
-    if (!quickSaleCustomer) {
-      setQuickSaleError("Please select a customer first.");
-      return;
-    }
+    // ❌ Removed customer check – customer can be selected later
     if (quickSaleQty <= 0) {
       setQuickSaleError("Quantity must be at least 1.");
       return;
@@ -206,7 +202,6 @@ export default function RiderDashboardScreen({ navigation }) {
     setQuickSaleSuccess("");
   };
 
-  // Customer selection for quick sale
   const handleQuickSaleCustomerSelect = (customer) => {
     setQuickSaleCustomer(customer);
     setQuickSaleCustomerModalVisible(false);
@@ -231,7 +226,6 @@ export default function RiderDashboardScreen({ navigation }) {
 
   // Generate invoice HTML (same as CreateInvoiceScreen)
   const generateInvoiceHTML = (invoice, payment) => {
-    // ... (same as before – include full function)
     const itemsHtml = invoice.items
       .map(
         (item) => `
@@ -552,6 +546,51 @@ export default function RiderDashboardScreen({ navigation }) {
           />
         </View>
 
+        {/* Inventory Section (moved from modal) */}
+        <View style={styles.inventorySection}>
+          <View style={styles.inventoryHeader}>
+            <SectionTitle>My Assigned Inventory</SectionTitle>
+            <TouchableOpacity
+              onPress={() => setShowInventory(!showInventory)}
+              style={styles.inventoryToggle}
+            >
+              <Text style={styles.inventoryToggleText}>
+                {showInventory ? "Hide" : "Show"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {showInventory && (
+            (data?.assignedInventory || []).length === 0 ? (
+              <Text style={styles.emptyText}>No inventory assigned yet. Contact admin.</Text>
+            ) : (
+              <View style={styles.inventoryList}>
+                {(data?.assignedInventory || []).map((item) => (
+                  <TouchableOpacity
+                    key={item._id}
+                    style={styles.inventoryCard}
+                    onPress={() => {
+                      setPopupVisible(false);
+                      openQuickSale(item);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.inventoryItemRow}>
+                      <Text style={styles.inventorySize}>{item.cylinderSize}</Text>
+                      <View style={styles.inventoryStats}>
+                        <Text style={styles.inventoryText}>Filled: {item.filledQty}</Text>
+                        <Text style={styles.inventoryText}>Empty: {item.emptyQty}</Text>
+                        <Icon name="chevron-forward" size={20} color={COLORS.primary} />
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )
+          )}
+        </View>
+
+        {/* Footer */}
         <View style={styles.footerContainer}>
           <Text style={styles.footerText}>
             Last updated: {new Date().toLocaleString()}
@@ -562,7 +601,7 @@ export default function RiderDashboardScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* ====== MAIN MODAL ====== */}
+      {/* ====== MAIN MODAL (popup) – inventory section removed ====== */}
       <Modal
         animationType="slide"
         transparent
@@ -586,47 +625,6 @@ export default function RiderDashboardScreen({ navigation }) {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.modalScrollContent}
             >
-              <View style={styles.inventoryHeader}>
-                <SectionTitle>My Assigned Inventory</SectionTitle>
-                <TouchableOpacity
-                  onPress={() => setShowInventory(!showInventory)}
-                  style={styles.inventoryToggle}
-                >
-                  <Text style={styles.inventoryToggleText}>
-                    {showInventory ? "Hide" : "Show"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {showInventory && (
-                (data?.assignedInventory || []).length === 0 ? (
-                  <Text style={styles.emptyText}>No inventory assigned yet. Contact admin.</Text>
-                ) : (
-                  <View style={styles.inventoryList}>
-                    {(data?.assignedInventory || []).map((item) => (
-                      <TouchableOpacity
-                        key={item._id}
-                        style={styles.inventoryCard}
-                        onPress={() => {
-                          setPopupVisible(false);
-                          openQuickSale(item);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.inventoryItemRow}>
-                          <Text style={styles.inventorySize}>{item.cylinderSize}</Text>
-                          <View style={styles.inventoryStats}>
-                            <Text style={styles.inventoryText}>Filled: {item.filledQty}</Text>
-                            <Text style={styles.inventoryText}>Empty: {item.emptyQty}</Text>
-                            <Icon name="chevron-forward" size={20} color={COLORS.primary} />
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )
-              )}
-
               <SectionTitle>Actions</SectionTitle>
               <View style={styles.actionGrid}>
                 <Button
@@ -739,19 +737,6 @@ export default function RiderDashboardScreen({ navigation }) {
             <ErrorText>{quickSaleError}</ErrorText>
             {quickSaleSuccess ? <SuccessText>{quickSaleSuccess}</SuccessText> : null}
 
-            {/* Select Customer */}
-            <TouchableOpacity
-              style={styles.quickCustomerSelector}
-              onPress={() => setQuickSaleCustomerModalVisible(true)}
-            >
-              <Text style={styles.quickCustomerSelectorText}>
-                {quickSaleCustomer
-                  ? quickSaleCustomer.name
-                  : "Tap to select customer"}
-              </Text>
-              <Icon name="chevron-down" size={20} color={COLORS.gray} />
-            </TouchableOpacity>
-
             {/* Inventory Grid */}
             <Text style={{ color: COLORS.gray, fontWeight: "600", marginVertical: 8 }}>
               Select Cylinder:
@@ -791,8 +776,8 @@ export default function RiderDashboardScreen({ navigation }) {
                   {selectedCylinder.weightKg} kg/cylinder · Rs.{selectedCylinder.ratePerKg}/kg
                 </Text>
 
-                {/* Quantity */}
-                <View style={styles.quickQtyRow}>
+                {/* Quantity Controls with rectangle background */}
+                <View style={styles.quickQtyContainer}>
                   <TouchableOpacity
                     onPress={decreaseQty}
                     disabled={quickSaleQty <= 1}
@@ -867,16 +852,37 @@ export default function RiderDashboardScreen({ navigation }) {
                     </Text>
                   </View>
                 </Card>
-
-                <Button
-                  title="Sell Now"
-                  variant="primary"
-                  onPress={openPaymentModal}
-                  icon="checkmark"
-                  style={{ marginVertical: 12 }}
-                  loading={quickSaleLoading || quickSalePrinting}
-                />
               </>
+            )}
+
+            {/* ===== Customer Selector – always visible ===== */}
+            <TouchableOpacity
+              style={styles.quickCustomerSelector}
+              onPress={() => setQuickSaleCustomerModalVisible(true)}
+            >
+              <Text style={styles.quickCustomerSelectorText}>
+                {quickSaleCustomer
+                  ? quickSaleCustomer.name
+                  : "Tap to select customer"}
+              </Text>
+              <Icon name="chevron-down" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+            {!quickSaleCustomer && (
+              <Text style={{ color: COLORS.danger, fontSize: 12, marginBottom: 8 }}>
+                * Customer is required to finalize sale
+              </Text>
+            )}
+
+            {/* Sell Now button – only when cart has items */}
+            {quickSaleCart.length > 0 && (
+              <Button
+                title="Sell Now"
+                variant="primary"
+                onPress={openPaymentModal}
+                icon="checkmark"
+                style={{ marginVertical: 12 }}
+                loading={quickSaleLoading || quickSalePrinting}
+              />
             )}
           </ScrollView>
         </View>
@@ -1030,7 +1036,6 @@ export default function RiderDashboardScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // ... (all previous styles, plus new ones for quick sale)
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -1096,6 +1101,68 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderRadius: 10,
     paddingVertical: 12,
+  },
+  // Inventory section
+  inventorySection: {
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  inventoryHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  inventoryToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 6,
+  },
+  inventoryToggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: COLORS.dark,
+  },
+  emptyText: {
+    color: COLORS.gray,
+    fontSize: 14,
+    marginBottom: 16,
+    fontStyle: "italic",
+  },
+  inventoryList: {
+    marginBottom: 8,
+  },
+  inventoryCard: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  inventoryItemRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  inventorySize: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: COLORS.dark,
+  },
+  inventoryStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  inventoryText: {
+    fontSize: 16,
+    color: COLORS.dark,
   },
   footerContainer: {
     flexDirection: "row",
@@ -1173,63 +1240,6 @@ const styles = StyleSheet.create({
   modalBottomSpacer: {
     height: 30,
   },
-  inventoryHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 4,
-  },
-  inventoryToggle: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: COLORS.lightGray,
-    borderRadius: 6,
-  },
-  inventoryToggleText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: COLORS.dark,
-  },
-  emptyText: {
-    color: COLORS.gray,
-    fontSize: 14,
-    marginBottom: 16,
-    fontStyle: "italic",
-  },
-  inventoryList: {
-    marginBottom: 8,
-  },
-  inventoryCard: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: 8,
-    backgroundColor: COLORS.white,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  inventoryItemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  inventorySize: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: COLORS.dark,
-  },
-  inventoryStats: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  inventoryText: {
-    fontSize: 16,
-    color: COLORS.dark,
-  },
   actionGrid: {
     marginTop: 4,
   },
@@ -1269,7 +1279,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     borderRadius: 8,
     backgroundColor: COLORS.white,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   quickCustomerSelectorText: {
     fontSize: 16,
@@ -1315,12 +1325,20 @@ const styles = StyleSheet.create({
     color: COLORS.gray,
     marginTop: 2,
   },
-  quickQtyRow: {
+  // Quantity container – rectangle background
+  quickQtyContainer: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     marginVertical: 12,
-    gap: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: 'center',
+    gap: 20,
   },
   quickQtyBtn: {
     width: 44,

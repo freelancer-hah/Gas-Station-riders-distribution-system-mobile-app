@@ -152,15 +152,13 @@ export default function CreateInvoiceScreen({ navigation }) {
     setCustomerSearchQuery("");
     setError("");
     setSuccess("");
-    // If not frozen, we keep selection enabled so they can change later
-    // but when they manually select, we allow changing again
     if (!customerId) {
       setCustomerSelectionDisabled(false);
     }
   };
 
   const clearCustomerSelection = () => {
-    if (customerId) return; // frozen
+    if (customerId) return;
     setSelectedCustomer(null);
     setCustomerSelectionDisabled(false);
     setSuccess("");
@@ -232,7 +230,6 @@ export default function CreateInvoiceScreen({ navigation }) {
     setQuantity(1);
     setCylinderSize("");
     setRatePerKg("");
-    // Reset payment collected flag when items change
     setPaymentCollected(false);
     setPaymentAmount("");
   };
@@ -539,7 +536,6 @@ export default function CreateInvoiceScreen({ navigation }) {
         <ErrorText>{error}</ErrorText>
         <SuccessText>{success}</SuccessText>
 
-        {/* Customer Selection - opens modal */}
         <Text style={{ color: COLORS.gray, marginBottom: 8, fontWeight: "600" }}>
           {isCustomerFrozen ? "Customer (frozen)" : "Select Customer:"}
         </Text>
@@ -682,56 +678,37 @@ export default function CreateInvoiceScreen({ navigation }) {
             <Text style={{ color: COLORS.gray, fontWeight: "600", marginBottom: 6 }}>
               Number of Cylinders
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: cylinderSize && quantity > 1 ? COLORS.primary : COLORS.gray,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: cylinderSize && quantity > 1 ? 1 : 0.5,
-                }}
+            {/* ====== UPDATED: Rectangle background around quantity controls ====== */}
+            <View style={styles.qtyContainer}>
+              <TouchableWithoutFeedback
+                onPress={decreaseQuantity}
+                disabled={!cylinderSize || quantity <= 1}
               >
-                <TouchableWithoutFeedback
-                  onPress={decreaseQuantity}
-                  disabled={!cylinderSize || quantity <= 1}
+                <View
+                  style={[
+                    styles.qtyBtn,
+                    { opacity: cylinderSize && quantity > 1 ? 1 : 0.5 },
+                  ]}
                 >
                   <Icon name="remove" size={24} color={COLORS.white} />
-                </TouchableWithoutFeedback>
-              </View>
+                </View>
+              </TouchableWithoutFeedback>
 
-              <Text
-                style={{
-                  fontSize: 24,
-                  fontWeight: "700",
-                  color: COLORS.dark,
-                  minWidth: 40,
-                  textAlign: "center",
-                }}
-              >
-                {quantity}
-              </Text>
+              <Text style={styles.qtyNumber}>{quantity}</Text>
 
-              <View
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: cylinderSize ? COLORS.primary : COLORS.gray,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  opacity: cylinderSize ? 1 : 0.5,
-                }}
+              <TouchableWithoutFeedback
+                onPress={increaseQuantity}
+                disabled={!cylinderSize}
               >
-                <TouchableWithoutFeedback
-                  onPress={increaseQuantity}
-                  disabled={!cylinderSize}
+                <View
+                  style={[
+                    styles.qtyBtn,
+                    { opacity: cylinderSize ? 1 : 0.5 },
+                  ]}
                 >
                   <Icon name="add" size={24} color={COLORS.white} />
-                </TouchableWithoutFeedback>
-              </View>
+                </View>
+              </TouchableWithoutFeedback>
             </View>
           </View>
 
@@ -1199,5 +1176,35 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: COLORS.dark,
+  },
+
+  // ====== NEW: Rectangle container for quantity controls ======
+  qtyContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignSelf: 'center',
+    gap: 20,
+  },
+  qtyBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  qtyNumber: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: COLORS.dark,
+    minWidth: 40,
+    textAlign: "center",
   },
 });

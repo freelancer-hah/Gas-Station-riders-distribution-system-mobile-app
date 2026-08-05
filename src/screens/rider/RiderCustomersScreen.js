@@ -1,8 +1,27 @@
+// screens/rider/RiderCustomersScreen.js
 import React, { useCallback, useState } from "react";
-import { ScrollView, Text, View, Modal, StyleSheet, TouchableOpacity } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  Modal,
+  StyleSheet,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../api/client";
-import { Screen, Card, SectionTitle, Button, Field, ErrorText, SuccessText, COLORS } from "../../components/UI";
+import {
+  Screen,
+  Card,
+  SectionTitle,
+  Button,
+  Field,
+  ErrorText,
+  SuccessText,
+  COLORS,
+} from "../../components/UI";
+import Icon from "react-native-vector-icons/Ionicons";
 
 export default function RiderCustomersScreen({ navigation }) {
   const [customers, setCustomers] = useState([]);
@@ -15,6 +34,10 @@ export default function RiderCustomersScreen({ navigation }) {
   const [modalError, setModalError] = useState("");
   const [modalSuccess, setModalSuccess] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
+
+  // State for action popup
+  const [actionModalVisible, setActionModalVisible] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +90,37 @@ export default function RiderCustomersScreen({ navigation }) {
     }
   };
 
+  // Handle customer tap – show action popup
+  const handleCustomerPress = (customer) => {
+    setSelectedCustomer(customer);
+    setActionModalVisible(true);
+  };
+
+  // Actions
+  const handleCreateSale = () => {
+    setActionModalVisible(false);
+    if (selectedCustomer) {
+      navigation.navigate("CreateInvoice", { customerId: selectedCustomer._id });
+    }
+  };
+
+  const handleRecordPayment = () => {
+    setActionModalVisible(false);
+    if (selectedCustomer) {
+      navigation.navigate("RecordPayment", { customerId: selectedCustomer._id });
+    }
+  };
+
+  const handleViewLedger = () => {
+    setActionModalVisible(false);
+    if (selectedCustomer) {
+      navigation.navigate("CustomerLedger", {
+        customerId: selectedCustomer._id,
+        customerName: selectedCustomer.name,
+      });
+    }
+  };
+
   return (
     <Screen>
       <ScrollView>
@@ -91,7 +145,7 @@ export default function RiderCustomersScreen({ navigation }) {
           <TouchableOpacity
             key={c._id}
             activeOpacity={0.7}
-            onPress={() => navigation.navigate("CreateInvoice", { customerId: c._id })}
+            onPress={() => handleCustomerPress(c)}
           >
             <Card style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
@@ -108,18 +162,7 @@ export default function RiderCustomersScreen({ navigation }) {
                   {formatMoney(c.outstandingBalance)}
                 </Text>
               </View>
-
-              {/* Only View Ledger button remains */}
-              <Button
-                title="View Ledger"
-                variant="secondary"
-                onPress={() =>
-                  navigation.navigate("CustomerLedger", { customerId: c._id, customerName: c.name })
-                }
-                size="small"
-                icon="list"
-                style={{ marginTop: 10 }}
-              />
+              {/* No "View Ledger" button here – it's now in the popup */}
             </Card>
           </TouchableOpacity>
         ))}
@@ -217,6 +260,59 @@ export default function RiderCustomersScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+
+      {/* ====== ACTION POPUP MODAL ====== */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={actionModalVisible}
+        onRequestClose={() => setActionModalVisible(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setActionModalVisible(false)}>
+          <View style={styles.actionOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.actionModal}>
+                <Text style={styles.actionTitle}>
+                  {selectedCustomer?.name}
+                </Text>
+                <Text style={styles.actionSubtitle}>
+                  Outstanding: {formatMoney(selectedCustomer?.outstandingBalance || 0)}
+                </Text>
+
+                <View style={styles.actionButtons}>
+                  <Button
+                    title="💰 Create Sale"
+                    variant="primary"
+                    onPress={handleCreateSale}
+                    icon="create"
+                    style={styles.actionBtn}
+                  />
+                  <Button
+                    title="💳 Record Payment"
+                    variant="secondary"
+                    onPress={handleRecordPayment}
+                    icon="cash"
+                    style={styles.actionBtn}
+                  />
+                  <Button
+                    title="📋 View Ledger"
+                    variant="secondary"
+                    onPress={handleViewLedger}
+                    icon="list"
+                    style={styles.actionBtn}
+                  />
+                  <Button
+                    title="Cancel"
+                    variant="secondary"
+                    onPress={() => setActionModalVisible(false)}
+                    style={styles.actionCancelBtn}
+                  />
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </Screen>
   );
 }
@@ -271,5 +367,49 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+
+  // Action popup styles
+  actionOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  actionModal: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 350,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  actionTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.dark,
+    marginBottom: 4,
+  },
+  actionSubtitle: {
+    fontSize: 14,
+    color: COLORS.gray,
+    marginBottom: 20,
+  },
+  actionButtons: {
+    width: "100%",
+    gap: 10,
+  },
+  actionBtn: {
+    width: "100%",
+  },
+  actionCancelBtn: {
+    width: "100%",
+    marginTop: 4,
   },
 });

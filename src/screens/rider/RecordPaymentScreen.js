@@ -11,16 +11,21 @@ import {
   RefreshControl,
   Keyboard,
 } from "react-native";
+import { useRoute } from "@react-navigation/native";
 import api from "../../api/client";
 import { Screen, Card, Field, Button, SectionTitle, ErrorText, COLORS } from "../../components/UI";
 import Icon from "react-native-vector-icons/Ionicons";
 
 const METHODS = ["cash", "bank_transfer", "jazzcash", "easypaisa", "cheque"];
 
-export default function RecordPaymentScreen() {
+export default function RecordPaymentScreen({ navigation }) {
+  const route = useRoute();
+  const { customerId } = route.params || {};
+
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerSelectionDisabled, setCustomerSelectionDisabled] = useState(false);
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [notes, setNotes] = useState("");
@@ -33,9 +38,29 @@ export default function RecordPaymentScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Load customers and pre‑select if customerId is provided
   useEffect(() => {
     loadCustomers();
   }, []);
+
+  // Auto‑select customer if customerId is passed
+  useEffect(() => {
+    if (customerId) {
+      const loadCustomer = async () => {
+        try {
+          const res = await api.get(`/customers/${customerId}`);
+          const customer = res.data;
+          setSelectedCustomer(customer);
+          setCustomerSelectionDisabled(true);
+          setError("");
+          setSuccess(`Customer: ${customer.name}`);
+        } catch (err) {
+          setError("Failed to load customer. Please search manually.");
+        }
+      };
+      loadCustomer();
+    }
+  }, [customerId]);
 
   const loadCustomers = async () => {
     try {
@@ -64,7 +89,10 @@ export default function RecordPaymentScreen() {
   };
 
   const clearSelection = () => {
+    if (customerId) return; // frozen
     setSelectedCustomer(null);
+    setCustomerSelectionDisabled(false);
+    setSuccess("");
   };
 
   const submit = async () => {
@@ -114,6 +142,8 @@ export default function RecordPaymentScreen() {
     </TouchableOpacity>
   );
 
+  const isFrozen = !!customerId;
+
   return (
     <Screen>
       <ScrollView
@@ -132,16 +162,29 @@ export default function RecordPaymentScreen() {
             ) : null}
 
             <Text style={{ color: COLORS.gray, marginBottom: 8, fontWeight: "600" }}>
-              Select Customer:
+              {isFrozen ? "Customer (frozen)" : "Select Customer:"}
             </Text>
 
             {/* Customer Selector */}
-            <TouchableOpacity style={styles.selector} onPress={() => setModalVisible(true)}>
+            <TouchableOpacity
+              style={[
+                styles.selector,
+                isFrozen && { backgroundColor: COLORS.lightGray, opacity: 0.8 },
+              ]}
+              onPress={() => !isFrozen && setModalVisible(true)}
+              disabled={isFrozen}
+            >
               <Text style={styles.selectorText}>
                 {selectedCustomer ? selectedCustomer.name : "Tap to choose a customer"}
               </Text>
-              <Icon name="chevron-down" size={20} color={COLORS.gray} />
+              {!isFrozen && <Icon name="chevron-down" size={20} color={COLORS.gray} />}
             </TouchableOpacity>
+
+            {isFrozen && selectedCustomer && (
+              <Text style={{ color: COLORS.gray, fontSize: 12, marginTop: 4, marginBottom: 12 }}>
+                * Customer is locked for this payment.
+              </Text>
+            )}
 
             {selectedCustomer && (
               <View style={styles.selectedCustomerInfo}>
@@ -151,9 +194,11 @@ export default function RecordPaymentScreen() {
                   Current outstanding: Rs.{" "}
                   {Number(selectedCustomer.outstandingBalance || 0).toLocaleString()}
                 </Text>
-                <TouchableOpacity onPress={clearSelection} style={styles.clearButton}>
-                  <Text style={{ color: COLORS.danger, fontSize: 12 }}>Change selection</Text>
-                </TouchableOpacity>
+                {!isFrozen && (
+                  <TouchableOpacity onPress={clearSelection} style={styles.clearButton}>
+                    <Text style={{ color: COLORS.danger, fontSize: 12 }}>Change selection</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
 
