@@ -1,12 +1,28 @@
 import React, { useCallback, useState } from "react";
-import { ScrollView, View, Text, RefreshControl } from "react-native";
+import {
+  ScrollView,
+  View,
+  Text,
+  RefreshControl,
+  Modal,
+  TouchableOpacity,
+  FlatList,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../api/client";
-import { 
-  Screen, Card, SectionTitle, StatBox, 
-  ErrorText, COLORS, Button, Field 
+import {
+  Screen,
+  Card,
+  SectionTitle,
+  StatBox,
+  ErrorText,
+  COLORS,
+  Button,
+  Field,
+  Badge,
 } from "../../components/UI";
 import Icon from "react-native-vector-icons/Ionicons";
+import { CYLINDER_SIZES, SIZE_LABELS, getWeightBySize } from "../../constants/cylinderSizes";
 
 export default function AdminInventoryScreen() {
   const [inventory, setInventory] = useState([]);
@@ -14,8 +30,8 @@ export default function AdminInventoryScreen() {
   const [error, setError] = useState("");
   const [showAdd, setShowAdd] = useState(false);
   
-  const [newSize, setNewSize] = useState("");
-  const [newWeight, setNewWeight] = useState("");
+  const [selectedSize, setSelectedSize] = useState(null);
+  const [sizeModalVisible, setSizeModalVisible] = useState(false);
   const [newFilled, setNewFilled] = useState("");
   const [newRate, setNewRate] = useState("");
   const [loading, setLoading] = useState(false);
@@ -47,23 +63,22 @@ export default function AdminInventoryScreen() {
     setError("");
     setSuccess("");
     
-    if (!newSize || !newWeight) {
-      setError("Cylinder size and weight are required");
+    if (!selectedSize) {
+      setError("Please select a cylinder size");
       return;
     }
 
     setLoading(true);
     try {
       await api.post("/admin/inventory", {
-        cylinderSize: newSize.trim(),
-        weightKg: Number(newWeight),
+        cylinderSize: selectedSize,
+        weightKg: getWeightBySize(selectedSize),
         filledQty: Number(newFilled) || 0,
         saleRatePerKg: Number(newRate) || 0,
       });
       
-      setSuccess(`✅ Added ${newSize} to inventory`);
-      setNewSize("");
-      setNewWeight("");
+      setSuccess(`✅ Added ${selectedSize} to inventory`);
+      setSelectedSize(null);
       setNewFilled("");
       setNewRate("");
       setShowAdd(false);
@@ -101,21 +116,20 @@ export default function AdminInventoryScreen() {
         {showAdd && (
           <Card>
             {success && <Text style={{ color: COLORS.success, marginBottom: 8 }}>{success}</Text>}
-            <Field 
-              label="Cylinder Size" 
-              value={newSize} 
-              onChangeText={setNewSize} 
-              placeholder="e.g. 48KG"
-              icon="cube-outline"
-            />
-            <Field 
-              label="Weight (kg)" 
-              value={newWeight} 
-              onChangeText={setNewWeight} 
-              placeholder="e.g. 48"
-              keyboardType="numeric"
-              icon="scale-outline"
-            />
+            
+            <Text style={{ color: COLORS.gray, marginBottom: 8, fontWeight: "600" }}>
+              Cylinder Size *
+            </Text>
+            <TouchableOpacity
+              style={styles.selector}
+              onPress={() => setSizeModalVisible(true)}
+            >
+              <Text style={styles.selectorText}>
+                {selectedSize ? selectedSize : "Tap to select size"}
+              </Text>
+              <Icon name="chevron-down" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+
             <Field 
               label="Initial Filled Quantity" 
               value={newFilled} 
@@ -173,6 +187,91 @@ export default function AdminInventoryScreen() {
           ))
         )}
       </ScrollView>
+
+      {/* Modal for size selection */}
+      <Modal
+        visible={sizeModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setSizeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Cylinder Size</Text>
+            <FlatList
+              data={CYLINDER_SIZES}
+              keyExtractor={(item) => item.label}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.sizeItem}
+                  onPress={() => {
+                    setSelectedSize(item.label);
+                    setSizeModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.sizeLabel}>{item.label}</Text>
+                </TouchableOpacity>
+              )}
+            />
+            <Button
+              title="Cancel"
+              variant="secondary"
+              onPress={() => setSizeModalVisible(false)}
+              style={{ marginTop: 12 }}
+            />
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
+
+const styles = {
+  selector: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 12,
+    borderWidth: 1,
+    borderColor: COLORS.border || "#ddd",
+    borderRadius: 8,
+    marginBottom: 12,
+    backgroundColor: COLORS.white,
+  },
+  selectorText: {
+    fontSize: 16,
+    color: COLORS.dark,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.white,
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: COLORS.dark,
+    marginBottom: 16,
+  },
+  sizeItem: {
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border || "#eee",
+  },
+  sizeLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.dark,
+  },
+};

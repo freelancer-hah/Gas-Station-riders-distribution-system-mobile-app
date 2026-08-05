@@ -1,14 +1,14 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   ScrollView,
   View,
   Text,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
   FlatList,
   TouchableOpacity,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../api/client";
@@ -23,39 +23,36 @@ import {
   COLORS,
 } from "../../components/UI";
 import Icon from "react-native-vector-icons/Ionicons";
+import { CYLINDER_SIZES } from "../../constants/cylinderSizes";
 
 export default function ReceiveEmptyScreen() {
+  // Rider selection
   const [riders, setRiders] = useState([]);
   const [selectedRider, setSelectedRider] = useState(null);
+  const [riderModalVisible, setRiderModalVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Rider inventory & Multi-select state
   const [riderInventory, setRiderInventory] = useState([]);
-  const [selectedCylinder, setSelectedCylinder] = useState(null);
-  const [emptyQty, setEmptyQty] = useState("");
+  const [selectedItems, setSelectedItems] = useState({}); // { "23 KG": 3, "48 KG": 2 }
+
+  // UI state
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Modal & search state
-  const [modalVisible, setModalVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-
+  // Load riders
   const loadRiders = useCallback(async () => {
     try {
       const res = await api.get("/riders");
-      // Sort riders alphabetically by name
-      const sorted = res.data.sort((a, b) => a.name.localeCompare(b.name));
-      setRiders(sorted);
+      setRiders((res.data || []).sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       setError("Failed to load riders");
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadRiders();
-    }, [loadRiders])
-  );
-
+  // Load rider inventory when rider is selected
   const loadRiderInventory = async (riderId) => {
     try {
       const res = await api.get(`/admin/rider-inventory/${riderId}`);
@@ -65,21 +62,40 @@ export default function ReceiveEmptyScreen() {
     }
   };
 
+  useFocusEffect(useCallback(() => { loadRiders(); }, [loadRiders]));
+
   const handleRiderSelect = (rider) => {
     setSelectedRider(rider);
-    setSelectedCylinder(null);
-    setEmptyQty("");
-    loadRiderInventory(rider._id);
-    setModalVisible(false);
+    setSelectedItems({}); // Clear selections
+    setRiderModalVisible(false);
     setSearchQuery("");
+    loadRiderInventory(rider._id);
   };
 
-  const handleCylinderSelect = (item) => {
-    setSelectedCylinder(item);
-    setEmptyQty("");
+  // ================== TOGGLE SIZE SELECTION ==================
+  const toggleSelection = (size) => {
+    setSelectedItems((prev) => {
+      const copy = { ...prev };
+      if (copy[size]) {
+        delete copy[size];
+      } else {
+        copy[size] = 1; // default quantity = 1
+      }
+      return copy;
+    });
   };
 
-  const receiveEmpty = async () => {
+  // ================== QUANTITY CONTROLS FOR SELECTED SIZES ==================
+  const updateQuantity = (size, delta) => {
+    setSelectedItems((prev) => {
+      const current = prev[size] || 0;
+      const newQty = Math.max(1, current + delta);
+      return { ...prev, [size]: newQty };
+    });
+  };
+
+  // ================== SUBMIT RETURN ==================
+  const submitReturn = async () => {
     setError("");
     setSuccess("");
 
@@ -87,43 +103,33 @@ export default function ReceiveEmptyScreen() {
       setError("Please select a rider");
       return;
     }
-    if (!selectedCylinder) {
-      setError("Please select a cylinder size");
+    const sizeKeys = Object.keys(selectedItems);
+    if (sizeKeys.length === 0) {
+      setError("Please select at least one cylinder size to return");
       return;
     }
-    if (!emptyQty || Number(emptyQty) <= 0) {
-      setError("Please enter valid quantity");
-      return;
-    }
-    if (Number(emptyQty) > selectedCylinder.emptyQty) {
-      setError(
-        `Insufficient empty cylinders. Available: ${selectedCylinder.emptyQty}`
-      );
-      return;
-    }
+
+    // Prepare items array for backend
+    const items = sizeKeys.map((size) => ({
+      cylinderSize: size,
+      emptyQty: selectedItems[size],
+    }));
 
     setLoading(true);
     try {
       const res = await api.post("/admin/receive-empty", {
         riderId: selectedRider._id,
-        cylinderSize: selectedCylinder.cylinderSize,
-        emptyQty: Number(emptyQty),
+        items: items,
       });
 
-      setSuccess(
-        `✅ Received ${emptyQty} empty cylinders of ${selectedCylinder.cylinderSize} from ${selectedRider.name}`
-      );
-
-      setSelectedCylinder(null);
-      setEmptyQty("");
-
+      const totalQty = res.data.transaction.emptyQty;
+      setSuccess(`✅ Received ${totalQty} empty cylinders from ${selectedRider.name}`);
+      setSelectedItems({});
       loadRiderInventory(selectedRider._id);
 
-      Alert.alert(
-        "Received Successfully",
-        `Received ${emptyQty} empty cylinders of ${selectedCylinder.cylinderSize} from ${selectedRider.name}`,
-        [{ text: "OK" }]
-      );
+      Alert.alert("Success", `Received ${totalQty} empty cylinders from ${selectedRider.name}`, [
+        { text: "OK" },
+      ]);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to receive empty cylinders");
     } finally {
@@ -131,37 +137,16 @@ export default function ReceiveEmptyScreen() {
     }
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await loadRiders();
-    if (selectedRider) {
-      await loadRiderInventory(selectedRider._id);
-    }
-    setRefreshing(false);
-  };
-
-  // Filter riders based on search query
+  // Helpers
+  const totalSelectedQty = Object.values(selectedItems).reduce((sum, qty) => sum + qty, 0);
   const filteredRiders = riders.filter((r) =>
-    r.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const renderRiderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.riderItem}
-      onPress={() => handleRiderSelect(item)}
-    >
-      <Text style={styles.riderName}>{item.name}</Text>
-      <Text style={styles.riderPhone}>{item.phone}</Text>
-    </TouchableOpacity>
+    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.phone && r.phone.includes(searchQuery))
   );
 
   return (
     <Screen>
-      <ScrollView
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
+      <ScrollView refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadRiders} />}>
         <SectionTitle icon="refresh">Receive Empty Cylinders</SectionTitle>
 
         <Card>
@@ -169,15 +154,12 @@ export default function ReceiveEmptyScreen() {
           <SuccessText>{success}</SuccessText>
 
           {/* Rider Selection */}
-          <Text style={{ color: COLORS.gray, marginBottom: 8, fontWeight: "600" }}>
-            Select Rider:
-          </Text>
-
+          <Text style={{ color: COLORS.gray, fontWeight: "600" }}>Select Rider:</Text>
           <TouchableOpacity
             style={styles.riderSelector}
-            onPress={() => setModalVisible(true)}
+            onPress={() => setRiderModalVisible(true)}
           >
-            <Text style={styles.riderSelectorText}>
+            <Text style={styles.selectorText}>
               {selectedRider ? selectedRider.name : "Tap to choose a rider"}
             </Text>
             <Icon name="chevron-down" size={20} color={COLORS.gray} />
@@ -187,131 +169,135 @@ export default function ReceiveEmptyScreen() {
             <View
               style={{
                 padding: 10,
-                backgroundColor: COLORS.lightGray,
-                borderRadius: 8,
-                marginBottom: 12,
-              }}
-            >
-              <Text style={{ fontWeight: "600", color: COLORS.dark }}>
-                {selectedRider.name}
-              </Text>
-              <Text style={{ color: COLORS.gray }}>{selectedRider.phone}</Text>
-            </View>
-          )}
-
-          {/* Rider Inventory */}
-          {riderInventory.length > 0 && (
-            <>
-              <Text
-                style={{ color: COLORS.gray, marginBottom: 8, fontWeight: "600" }}
-              >
-                Rider's Empty Cylinders:
-              </Text>
-              <View
-                style={{
-                  flexDirection: "row",
-                  flexWrap: "wrap",
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                {riderInventory.map((item) => (
-                  <Button
-                    key={item._id}
-                    title={`${item.cylinderSize} (${item.emptyQty})`}
-                    variant={
-                      selectedCylinder?._id === item._id ? "primary" : "secondary"
-                    }
-                    onPress={() => handleCylinderSelect(item)}
-                    size="small"
-                    disabled={item.emptyQty <= 0}
-                  />
-                ))}
-              </View>
-            </>
-          )}
-
-          {selectedCylinder && (
-            <View
-              style={{
-                padding: 10,
                 backgroundColor: COLORS.primaryLight,
                 borderRadius: 8,
                 marginBottom: 12,
+                marginTop: 8,
               }}
             >
-              <Text style={{ fontWeight: "600", color: COLORS.dark }}>
-                {selectedCylinder.cylinderSize}
-              </Text>
-              <Text style={{ color: COLORS.gray }}>
-                Empty available: {selectedCylinder.emptyQty}
-              </Text>
-              <Text style={{ color: COLORS.gray }}>
-                Filled: {selectedCylinder.filledQty}
-              </Text>
+              <Text style={{ fontWeight: "600", color: COLORS.dark }}>{selectedRider.name}</Text>
+              <Text style={{ color: COLORS.gray }}>{selectedRider.phone}</Text>
             </View>
           )}
-
-          <Field
-            label="Number of Empty Cylinders to Receive"
-            value={emptyQty}
-            onChangeText={setEmptyQty}
-            placeholder="Enter quantity"
-            keyboardType="numeric"
-            icon="hash-outline"
-          />
-
-          <Button
-            title="Receive Empty Cylinders"
-            onPress={receiveEmpty}
-            loading={loading}
-            icon="checkmark"
-            style={{ marginTop: 12 }}
-          />
         </Card>
+
+        {/* ================== CYLINDER SELECTION GRID (INTERFACE WAISA HI) ================== */}
+        {selectedRider && riderInventory.length > 0 && (
+          <Card>
+            <Text style={{ color: COLORS.gray, fontWeight: "600", marginBottom: 8 }}>
+              Rider's Empty Cylinders (Tap to select multiple):
+            </Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {riderInventory.map((item) => (
+                <Button
+                  key={item._id}
+                  title={`${item.cylinderSize} (${item.emptyQty})`}
+                  variant={selectedItems[item.cylinderSize] ? "primary" : "secondary"}
+                  onPress={() => toggleSelection(item.cylinderSize)}
+                  size="small"
+                  disabled={item.emptyQty <= 0}
+                  style={{ minWidth: 80 }}
+                />
+              ))}
+            </View>
+          </Card>
+        )}
+
+        {/* ================== QUANTITY INPUTS FOR SELECTED ITEMS ================== */}
+        {Object.keys(selectedItems).length > 0 && (
+          <Card>
+            <Text style={{ fontWeight: "700", color: COLORS.dark, marginBottom: 8 }}>
+              Enter quantities for selected sizes:
+            </Text>
+            {Object.keys(selectedItems).map((size) => (
+              <View
+                key={size}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 12,
+                  paddingVertical: 4,
+                  borderBottomWidth: 1,
+                  borderBottomColor: COLORS.border,
+                }}
+              >
+                <Text style={{ fontWeight: "600", color: COLORS.dark, fontSize: 16 }}>{size}</Text>
+
+                {/* Rectangle Quantity Box (as requested) */}
+                <View style={styles.quantityRow}>
+                  <TouchableOpacity
+                    onPress={() => updateQuantity(size, -1)}
+                    disabled={selectedItems[size] <= 1}
+                    style={[
+                      styles.quantityButton,
+                      {
+                        backgroundColor: selectedItems[size] > 1 ? COLORS.primary : COLORS.gray,
+                        opacity: selectedItems[size] > 1 ? 1 : 0.5,
+                      },
+                    ]}
+                  >
+                    <Icon name="remove" size={20} color={COLORS.white} />
+                  </TouchableOpacity>
+
+                  <Text style={styles.quantityNumber}>{selectedItems[size]}</Text>
+
+                  <TouchableOpacity
+                    onPress={() => updateQuantity(size, 1)}
+                    style={[styles.quantityButton, { backgroundColor: COLORS.primary }]}
+                  >
+                    <Icon name="add" size={20} color={COLORS.white} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+              <Text style={{ color: COLORS.gray }}>Total Cylinders:</Text>
+              <Text style={{ fontWeight: "800", color: COLORS.dark, fontSize: 16 }}>
+                {totalSelectedQty}
+              </Text>
+            </View>
+
+            <Button
+              title="Receive Empty Cylinders"
+              onPress={submitReturn}
+              loading={loading}
+              icon="checkmark"
+              style={{ marginTop: 12 }}
+              disabled={Object.keys(selectedItems).length === 0}
+            />
+          </Card>
+        )}
       </ScrollView>
 
-      {/* Modal for selecting rider */}
-      <Modal
-        animationType="slide"
-        transparent={false}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
+      {/* Rider Modal */}
+      <Modal visible={riderModalVisible} transparent={false} onRequestClose={() => setRiderModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Rider</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
+            <TouchableOpacity onPress={() => setRiderModalVisible(false)}>
               <Icon name="close" size={28} color={COLORS.dark} />
             </TouchableOpacity>
           </View>
-
           <View style={styles.searchContainer}>
             <Icon name="search" size={20} color={COLORS.gray} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Search by name..."
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery("")}>
-                <Icon name="close-circle" size={20} color={COLORS.gray} />
-              </TouchableOpacity>
-            )}
+            <TextInput style={styles.searchInput} placeholder="Search..." value={searchQuery} onChangeText={setSearchQuery} />
           </View>
-
           <FlatList
             data={filteredRiders}
             keyExtractor={(item) => item._id}
-            renderItem={renderRiderItem}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No riders found</Text>
-            }
-            keyboardShouldPersistTaps="handled"
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.riderItem}
+                onPress={() => {
+                  handleRiderSelect(item);
+                }}
+              >
+                <Text style={styles.riderName}>{item.name}</Text>
+                <Text style={styles.riderPhone}>{item.phone}</Text>
+              </TouchableOpacity>
+            )}
           />
         </View>
       </Modal>
@@ -319,79 +305,61 @@ export default function ReceiveEmptyScreen() {
   );
 }
 
+// ==========================================================
+// STYLES (Interface same, rectangle box for quantity)
+// ==========================================================
 const styles = {
   riderSelector: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
     padding: 12,
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
+    borderColor: COLORS.border,
     borderRadius: 8,
-    marginBottom: 12,
     backgroundColor: COLORS.white,
   },
-  riderSelectorText: {
-    fontSize: 16,
-    color: COLORS.dark,
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    paddingTop: 40,
-    paddingHorizontal: 16,
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: COLORS.dark,
-  },
+  selectorText: { fontSize: 16, color: COLORS.dark },
+  modalContainer: { flex: 1, backgroundColor: COLORS.white, paddingTop: 40, paddingHorizontal: 16 },
+  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: "800", color: COLORS.dark },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: COLORS.lightGray,
+    borderColor: COLORS.border,
     borderRadius: 8,
     paddingHorizontal: 10,
-    backgroundColor: COLORS.white,
     marginBottom: 16,
   },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 16,
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 16, marginLeft: 8 },
+  riderItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  riderName: { fontSize: 16, fontWeight: "600" },
+  riderPhone: { fontSize: 14, color: COLORS.gray },
+
+  // 👇 RECTANGLE BACKGROUND BOX FOR QUANTITY (same as SellToRider)
+  quantityRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    backgroundColor: COLORS.lightGray,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  quantityButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  quantityNumber: {
+    fontSize: 18,
+    fontWeight: "700",
     color: COLORS.dark,
-    marginLeft: 8,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  riderItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.lightGray,
-  },
-  riderName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: COLORS.dark,
-  },
-  riderPhone: {
-    fontSize: 14,
-    color: COLORS.gray,
-    marginTop: 2,
-  },
-  emptyText: {
+    minWidth: 24,
     textAlign: "center",
-    color: COLORS.gray,
-    fontSize: 16,
-    marginTop: 20,
   },
 };
