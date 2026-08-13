@@ -241,9 +241,30 @@ export default function RecordPaymentScreen({ navigation }) {
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select Customer</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Icon name="close" size={28} color={COLORS.dark} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: COLORS.primary,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 6,
+                }}
+                onPress={() => {
+                  setModalVisible(false);
+                  navigation.navigate("Customers");
+                }}
+              >
+                <Icon name="person-add" size={16} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "700", marginLeft: 4, fontSize: 13 }}>
+                  + Add Customer
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Icon name="close" size={28} color={COLORS.dark} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.searchContainer}>
