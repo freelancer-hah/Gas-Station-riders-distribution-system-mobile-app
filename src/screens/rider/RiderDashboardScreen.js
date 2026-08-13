@@ -898,9 +898,30 @@ export default function RiderDashboardScreen({ navigation }) {
         <View style={styles.quickModalContainer}>
           <View style={styles.quickModalHeader}>
             <Text style={styles.quickModalTitle}>Select Customer</Text>
-            <TouchableOpacity onPress={() => setQuickSaleCustomerModalVisible(false)}>
-              <Icon name="close" size={28} color={COLORS.dark} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <TouchableOpacity
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  backgroundColor: COLORS.primary,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 6,
+                }}
+                onPress={() => {
+                  setQuickSaleCustomerModalVisible(false);
+                  navigation.navigate("Customers");
+                }}
+              >
+                <Icon name="person-add" size={16} color="#fff" />
+                <Text style={{ color: "#fff", fontWeight: "700", marginLeft: 4, fontSize: 13 }}>
+                  + Add Customer
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setQuickSaleCustomerModalVisible(false)}>
+                <Icon name="close" size={28} color={COLORS.dark} />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.quickSearchContainer}>
