@@ -8,6 +8,8 @@ import {
   StyleSheet,
   TouchableOpacity,
   TouchableWithoutFeedback,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import api from "../../api/client";
@@ -35,6 +37,8 @@ export default function RiderCustomersScreen({ navigation }) {
   const [modalSuccess, setModalSuccess] = useState("");
   const [modalLoading, setModalLoading] = useState(false);
 
+  const [searchQuery, setSearchQuery] = useState("");
+
   // State for action popup
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -51,16 +55,26 @@ export default function RiderCustomersScreen({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+      navigation.setOptions({
+        headerRight: () => null
+      });
+    }, [load, navigation])
   );
 
   const formatMoney = (n) => `Rs. ${Number(n || 0).toLocaleString()}`;
 
+  const filteredCustomers = customers.filter(
+    (c) =>
+      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.phone && c.phone.includes(searchQuery)) ||
+      (c.businessName && c.businessName.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   const addCustomer = async () => {
     setModalError("");
     setModalSuccess("");
-    if (!customerName || !customerPhone) {
-      setModalError("Name and phone are required");
+    if (!customerName) {
+      setModalError("Customer name is required");
       return;
     }
     setModalLoading(true);
@@ -88,6 +102,54 @@ export default function RiderCustomersScreen({ navigation }) {
     } finally {
       setModalLoading(false);
     }
+  };
+
+  // Quick add customer from search
+  const quickAddCustomer = async () => {
+    if (!searchQuery.trim()) {
+      Alert.alert("Error", "Please enter a customer name");
+      return;
+    }
+
+    // Check if customer already exists
+    const existingCustomer = customers.find(
+      c => c.name.toLowerCase() === searchQuery.toLowerCase().trim()
+    );
+
+    if (existingCustomer) {
+      Alert.alert("Already Exists", `Customer "${searchQuery}" already exists!`);
+      return;
+    }
+
+    Alert.alert(
+      "Add Customer",
+      `Add "${searchQuery.trim()}" as a new customer?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Add Customer",
+          onPress: async () => {
+            try {
+              await api.post("/customers", {
+                name: searchQuery.trim(),
+                businessName: "",
+                phone: "",
+                address: "",
+                creditLimit: 0,
+              });
+              Alert.alert("Success", `Customer "${searchQuery.trim()}" added successfully!`);
+              setSearchQuery("");
+              load();
+            } catch (err) {
+              Alert.alert("Error", err?.response?.data?.message || "Failed to add customer");
+            }
+          }
+        }
+      ]
+    );
   };
 
   // Handle customer tap – show action popup
@@ -122,8 +184,8 @@ export default function RiderCustomersScreen({ navigation }) {
   };
 
   return (
-    <Screen>
-      <ScrollView>
+    <Screen style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
         <View style={styles.header}>
           <SectionTitle style={{ marginBottom: 0 }}>My Customers</SectionTitle>
           <Button
@@ -135,13 +197,55 @@ export default function RiderCustomersScreen({ navigation }) {
           />
         </View>
 
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color={COLORS.gray} style={{ marginRight: 8 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search customer by name or phone..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery("")}>
+              <Icon name="close-circle" size={20} color={COLORS.gray} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {customers.length === 0 && (
           <Text style={{ color: COLORS.gray, textAlign: "center", marginTop: 20 }}>
             No customers assigned to you yet.
           </Text>
         )}
 
-        {customers.map((c) => (
+        {customers.length > 0 && filteredCustomers.length === 0 && searchQuery.length > 0 && (
+          <View style={styles.noResultContainer}>
+            <Icon name="search-outline" size={40} color={COLORS.gray} />
+            <Text style={styles.noResultText}>
+              No customer found with name "{searchQuery}"
+            </Text>
+            <TouchableOpacity
+              style={styles.quickAddButton}
+              onPress={quickAddCustomer}
+            >
+              <Icon name="person-add" size={20} color="#fff" />
+              <Text style={styles.quickAddButtonText}>
+                Add "{searchQuery}" as customer
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {customers.length > 0 && filteredCustomers.length === 0 && searchQuery.length === 0 && (
+          <Text style={{ color: COLORS.gray, textAlign: "center", marginTop: 20 }}>
+            No matching customers found.
+          </Text>
+        )}
+
+        {filteredCustomers.map((c) => (
           <TouchableOpacity
             key={c._id}
             activeOpacity={0.7}
@@ -151,6 +255,7 @@ export default function RiderCustomersScreen({ navigation }) {
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <View>
                   <Text style={{ fontWeight: "800", fontSize: 16, color: COLORS.dark }}>{c.name}</Text>
+                  {c.businessName ? <Text style={{ color: COLORS.gray, fontSize: 13 }}>{c.businessName}</Text> : null}
                   <Text style={{ color: COLORS.gray, marginTop: 2 }}>{c.phone}</Text>
                 </View>
                 <Text
@@ -162,7 +267,6 @@ export default function RiderCustomersScreen({ navigation }) {
                   {formatMoney(c.outstandingBalance)}
                 </Text>
               </View>
-              {/* No "View Ledger" button here – it's now in the popup */}
             </Card>
           </TouchableOpacity>
         ))}
@@ -214,7 +318,7 @@ export default function RiderCustomersScreen({ navigation }) {
               icon="business-outline"
             />
             <Field
-              label="Phone Number *"
+              label="Phone Number (optional)"
               value={customerPhone}
               onChangeText={setCustomerPhone}
               placeholder="03xxxxxxxxx"
@@ -323,6 +427,67 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  headerRightBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginRight: 12,
+  },
+  headerRightBtnText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 13,
+    marginLeft: 4,
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: COLORS.border || "#e0e0e0",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.dark,
+    paddingVertical: 4,
+  },
+  noResultContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    backgroundColor: COLORS.white,
+    borderRadius: 12,
+    marginTop: 10,
+  },
+  noResultText: {
+    color: COLORS.gray,
+    fontSize: 16,
+    marginTop: 12,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  quickAddButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 8,
+  },
+  quickAddButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
   },
   modalOverlay: {
     flex: 1,
