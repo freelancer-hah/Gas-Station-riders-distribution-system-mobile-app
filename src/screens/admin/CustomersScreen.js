@@ -31,8 +31,8 @@ export default function CustomersScreen({ navigation }) {
 
   const addCustomer = async () => {
     setError("");
-    if (!name || !phone) {
-      setError("Name and phone are required");
+    if (!name) {
+      setError("Customer name is required");
       return;
     }
     setLoading(true);
@@ -65,7 +65,7 @@ export default function CustomersScreen({ navigation }) {
           <ErrorText>{error}</ErrorText>
           <Field label="Customer Name" value={name} onChangeText={setName} />
           <Field label="Business Name (optional)" value={businessName} onChangeText={setBusinessName} />
-          <Field label="Phone" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+          <Field label="Phone (optional)" value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
           <Field label="Address" value={address} onChangeText={setAddress} />
           <Field label="Credit Limit" value={creditLimit} onChangeText={setCreditLimit} keyboardType="numeric" />
           <Button title="Add Customer" onPress={addCustomer} loading={loading} />
@@ -77,7 +77,7 @@ export default function CustomersScreen({ navigation }) {
           <Card key={c._id}>
             <Text style={{ fontWeight: "800", fontSize: 16, color: COLORS.dark }}>{c.name}</Text>
             {c.businessName ? <Text style={{ color: COLORS.gray }}>{c.businessName}</Text> : null}
-            <Text style={{ color: COLORS.gray, marginTop: 2 }}>{c.phone}</Text>
+            {c.phone ? <Text style={{ color: COLORS.gray, marginTop: 2 }}>{c.phone}</Text> : null}
             <Text style={{ marginTop: 6, fontWeight: "700", color: c.outstandingBalance > 0 ? COLORS.danger : COLORS.success }}>
               Outstanding: Rs. {Number(c.outstandingBalance || 0).toLocaleString()}
             </Text>
